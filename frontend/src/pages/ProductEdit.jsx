@@ -6,12 +6,12 @@ function ProductEdit() {
     const navigate = useNavigate()
     const { id: productId } = useParams()
 
-
     const [categories, setCategories] = useState([])
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
     const [message, setMessage] = useState('')
+    const [validationErrors, setValidationErrors] = useState({})
 
     const [form, setForm] = useState({
         name: '',
@@ -24,47 +24,62 @@ function ProductEdit() {
     })
 
     useEffect(() => {
+        let cancelled = false
+
         async function loadData() {
             try {
-               const [
-    { response: productResponse, data: product },
-    { response: categoriesResponse, data: categoriesData },
-] = await Promise.all([
-    api.get(`/products/${productId}`),
-    api.get('/categories'),
-])
+                const [{ data: product }, { data: categoriesData }] =
+                    await Promise.all([
+                        api.get(`/products/${productId}`),
+                        api.get('/categories'),
+                    ])
 
-                if (!productResponse.ok) {
-                    throw new Error('No se pudo cargar el producto')
+                if (!cancelled) {
+                    setForm({
+                        name: product.name ?? '',
+                        code: product.code ?? '',
+                        category_id: product.category_id ?? '',
+                        description: product.description ?? '',
+                        price: product.price ?? '',
+                        stock: product.stock ?? '',
+                        minimum_stock: product.minimum_stock ?? '',
+                    })
+
+                    setCategories(categoriesData)
                 }
-
-                if (!categoriesResponse.ok) {
-                    throw new Error('No se pudieron cargar las categorías')
-                }
-
-              
-
-                setForm({
-                    name: product.name ?? '',
-                    code: product.code ?? '',
-                    category_id: product.category_id ?? '',
-                    description: product.description ?? '',
-                    price: product.price ?? '',
-                    stock: product.stock ?? '',
-                    minimum_stock: product.minimum_stock ?? '',
-                })
-
-                setCategories(categoriesData)
-                setLoading(false)
-
             } catch (error) {
                 console.error(error)
-                setError(error.message)
-                setLoading(false)
+
+                if (!cancelled) {
+                    if (error.status === 401) {
+                        setError(
+                            'Tu sesión ha expirado. Inicia sesión nuevamente.'
+                        )
+                    } else if (error.status === 403) {
+                        setError(
+                            'No tienes permisos para consultar este producto o sus categorías.'
+                        )
+                    } else if (error.status === 404) {
+                        setError('El producto no existe.')
+                    } else {
+                        setError(
+                            error.message ||
+                                'No se pudo cargar la información del producto.'
+                        )
+                    }
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false)
+                }
             }
         }
 
         loadData()
+
+        return () => {
+            cancelled = true
+        }
     }, [productId])
 
     function handleChange(event) {
@@ -74,56 +89,62 @@ function ProductEdit() {
             ...previous,
             [name]: value,
         }))
+
+        setValidationErrors((previous) => ({
+            ...previous,
+            [name]: undefined,
+        }))
     }
 
     async function handleSubmit(event) {
-    event.preventDefault()
+        event.preventDefault()
 
-    setSaving(true)
-    setError('')
-    setMessage('')
+        setSaving(true)
+        setError('')
+        setMessage('')
+        setValidationErrors({})
 
-    try {
-        // Obtener la cookie CSRF de Laravel
-       const { response, data } = await api.put(
-    `/products/${productId}`,
-    {
-        name: form.name,
-        code: form.code,
-        category_id: Number(form.category_id),
-        description: form.description,
-        price: Number(form.price),
-        stock: Number(form.stock),
-        minimum_stock: Number(form.minimum_stock),
-    }
-)
+        try {
+            await api.put(`/products/${productId}`, {
+                name: form.name,
+                code: form.code,
+                category_id: Number(form.category_id),
+                description: form.description,
+                price: Number(form.price),
+                stock: Number(form.stock),
+                minimum_stock: Number(form.minimum_stock),
+            })
 
-        if (!response.ok) {
-            if (data.errors) {
-                const validationErrors = Object.values(data.errors)
-                    .flat()
-                    .join(' ')
+            setMessage('Producto actualizado correctamente.')
 
-                throw new Error(validationErrors)
+            setTimeout(() => {
+                navigate('/products')
+            }, 800)
+        } catch (error) {
+            console.error(error)
+
+            if (error.status === 422) {
+                setValidationErrors(error.errors || {})
+            } else if (error.status === 401) {
+                setError(
+                    'Tu sesión ha expirado. Inicia sesión nuevamente.'
+                )
+            } else if (error.status === 403) {
+                setError(
+                    'No tienes permisos para actualizar este producto.'
+                )
+            } else if (error.status === 404) {
+                setError('El producto que intentas actualizar no existe.')
+            } else {
+                setError(
+                    error.message ||
+                        'Ocurrió un error inesperado al actualizar el producto.'
+                )
             }
-
-            throw new Error(
-                data.message || 'No se pudo actualizar el producto'
-            )
+        } finally {
+            setSaving(false)
         }
-
-        setMessage('Producto actualizado correctamente.')
-
-        setTimeout(() => {
-          navigate('/products')
-       }, 800)
-    } catch (error) {
-        console.error(error)
-        setError(error.message)
-    } finally {
-        setSaving(false)
     }
-}
 
     if (loading) {
         return (
@@ -140,29 +161,24 @@ function ProductEdit() {
     return (
         <div className="min-h-screen bg-gray-100">
             <div className="mx-auto min-h-screen max-w-md bg-white shadow">
-
                 <header className="bg-blue-600 px-5 py-5 text-white">
-
                     <button
-                       onClick={() => navigate('/products')}
+                        onClick={() => navigate('/products')}
                         className="text-sm opacity-80"
->
+                    >
                         ← Volver a productos
                     </button>
 
                     <h1 className="mt-2 text-2xl font-bold">
                         Editar producto
                     </h1>
-
                 </header>
 
                 <main className="p-5">
-
                     <form
                         onSubmit={handleSubmit}
                         className="space-y-4"
                     >
-
                         <div>
                             <label className="mb-1 block text-sm font-semibold text-gray-700">
                                 Nombre
@@ -176,6 +192,12 @@ function ProductEdit() {
                                 required
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.name && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.name[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -191,6 +213,12 @@ function ProductEdit() {
                                 required
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.code && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.code[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -218,6 +246,12 @@ function ProductEdit() {
                                     </option>
                                 ))}
                             </select>
+
+                            {validationErrors.category_id && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.category_id[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -232,6 +266,12 @@ function ProductEdit() {
                                 rows="3"
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.description && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.description[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -249,6 +289,12 @@ function ProductEdit() {
                                 required
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.price && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.price[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -265,6 +311,12 @@ function ProductEdit() {
                                 required
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.stock && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.stock[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -281,6 +333,12 @@ function ProductEdit() {
                                 required
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.minimum_stock && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.minimum_stock[0]}
+                                </p>
+                            )}
                         </div>
 
                         {error && (
@@ -304,9 +362,7 @@ function ProductEdit() {
                                 ? 'Guardando...'
                                 : 'Actualizar producto'}
                         </button>
-
                     </form>
-
                 </main>
             </div>
         </div>

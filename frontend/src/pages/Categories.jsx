@@ -16,19 +16,29 @@ function Categories() {
 
         const fetchCategories = async () => {
             try {
-               const { response, data } = await api.get('/categories')
-                if (!response.ok) {
-                    throw new Error('No se pudieron cargar las categorías.')
-                }
-
-                
+                const { data } = await api.get('/categories')
 
                 if (!cancelled) {
                     setCategories(data)
                 }
             } catch (error) {
                 if (!cancelled) {
-                    setError(error.message)
+                    if (error.status === 401) {
+                        setError(
+                            'Tu sesión ha expirado. Inicia sesión nuevamente.'
+                        )
+                    } else if (error.status === 403) {
+                        setError(
+                            'No tienes permisos para consultar las categorías.'
+                        )
+                    } else if (error.status === 404) {
+                        setError('No se encontró el recurso solicitado.')
+                    } else {
+                        setError(
+                            error.message ||
+                                'No se pudieron cargar las categorías.'
+                        )
+                    }
                 }
             } finally {
                 if (!cancelled) {
@@ -54,15 +64,7 @@ function Categories() {
         }
 
         try {
-           const { response, data } = await api.delete(
-    `/categories/${categoryId}`
-)
-
-            if (!response.ok) {
-                throw new Error(
-                    data.message || 'No se pudo eliminar la categoría.'
-                )
-            }
+            await api.delete(`/categories/${categoryId}`)
 
             setCategories((previousCategories) =>
                 previousCategories.filter(
@@ -71,16 +73,33 @@ function Categories() {
             )
         } catch (error) {
             console.error(error)
-            window.alert(error.message)
+
+            if (error.status === 401) {
+                window.alert(
+                    'Tu sesión ha expirado. Inicia sesión nuevamente.'
+                )
+            } else if (error.status === 403) {
+                window.alert(
+                    'No tienes permisos para eliminar esta categoría.'
+                )
+            } else if (error.status === 404) {
+                window.alert('La categoría que intentas eliminar no existe.')
+            } else if (error.status === 422) {
+                window.alert(
+                    'No se puede eliminar la categoría porque tiene datos relacionados.'
+                )
+            } else {
+                window.alert(
+                    error.message || 'No se pudo eliminar la categoría.'
+                )
+            }
         }
     }
 
     return (
         <div className="min-h-screen bg-gray-100">
             <div className="mx-auto min-h-screen max-w-md bg-white shadow">
-
                 <header className="bg-green-600 px-5 py-6 text-white">
-
                     <button
                         onClick={() => navigate('/inventory')}
                         className="text-sm opacity-80 hover:opacity-100"
@@ -91,13 +110,10 @@ function Categories() {
                     <h1 className="mt-2 text-2xl font-bold">
                         Categorías
                     </h1>
-
                 </header>
 
                 <main className="p-5">
-
                     <div className="mb-5 flex items-center justify-between">
-
                         <h2 className="text-lg font-semibold">
                             Categorías
                         </h2>
@@ -110,7 +126,6 @@ function Categories() {
                                 + Nueva
                             </button>
                         )}
-
                     </div>
 
                     {loading && (
@@ -127,7 +142,6 @@ function Categories() {
 
                     {!loading && !error && (
                         <div className="space-y-4">
-
                             {categories.length === 0 ? (
                                 <p className="rounded-lg border border-gray-200 p-4 text-center text-gray-500">
                                     No hay categorías registradas.
@@ -138,7 +152,6 @@ function Categories() {
                                         key={category.id}
                                         className="rounded-xl border border-gray-200 p-4 shadow-sm"
                                     >
-
                                         <div>
                                             <h3 className="font-bold text-gray-800">
                                                 {category.name}
@@ -153,7 +166,6 @@ function Categories() {
                                         {(can('categorias.editar') ||
                                             can('categorias.eliminar')) && (
                                             <div className="mt-4 flex gap-2">
-
                                                 {can('categorias.editar') && (
                                                     <button
                                                         onClick={() =>
@@ -179,19 +191,14 @@ function Categories() {
                                                         Eliminar
                                                     </button>
                                                 )}
-
                                             </div>
                                         )}
-
                                     </div>
                                 ))
                             )}
-
                         </div>
                     )}
-
                 </main>
-
             </div>
         </div>
     )

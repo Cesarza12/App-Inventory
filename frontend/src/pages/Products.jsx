@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { api } from '../services/api'
- 
-    function Products() {
+
+function Products() {
     const { can } = useAuth()
     const navigate = useNavigate()
-
 
     const [products, setProducts] = useState([])
     const [loading, setLoading] = useState(true)
@@ -14,63 +13,106 @@ import { api } from '../services/api'
     const [search, setSearch] = useState('')
 
     useEffect(() => {
-   
+                
 
-    const params = search
-        ? `?search=${encodeURIComponent(search)}`
-        : ''
+        const params = search
+            ? `?search=${encodeURIComponent(search)}`
+            : ''
 
-    api.get(`/products${params}`)
-        .then(({ response, data }) => {
+        api.get(`/products${params}`)
+            .then(({ data }) => {
+                setProducts(data)
+            })
+            .catch((error) => {
+                console.error(error)
 
-            console.log('PRODUCTS RESPONSE:', response)
-            console.log('PRODUCTS DATA:', data)
+                if (error.status === 401) {
+                    setError(
+                        'Tu sesión ha expirado. Inicia sesión nuevamente.'
+                    )
+                    return
+                }
 
-            if (!response.ok) {
-                throw new Error('No se pudieron cargar los productos')
-            }
+                if (error.status === 403) {
+                    setError(
+                        'No tienes permiso para consultar los productos.'
+                    )
+                    return
+                }
 
-            setProducts(data)
-            setLoading(false)
-        })
-        .catch((error) => {
-            console.error(error)
-            setError(error.message)
-            setLoading(false)
-        })
-}, [search])
+                if (error.status === 404) {
+                    setError(
+                        'No se encontraron los productos solicitados.'
+                    )
+                    return
+                }
+
+                setError(
+                    'No se pudieron cargar los productos. Inténtalo nuevamente.'
+                )
+            })
+            .finally(() => {
+                setLoading(false)
+            })
+    }, [search])
 
     async function handleDelete(productId) {
-    const confirmed = window.confirm(
-        '¿Estás seguro de que deseas eliminar este producto?'
-    )
-
-    if (!confirmed) {
-        return
-    }
-
-    try {
-        const { response, data } = await api.delete(
-    `/products/${productId}`
-)
-        if (!response.ok) {
-            throw new Error(
-                data.message || 'No se pudo eliminar el producto'
-            )
-        }
-
-        setProducts((previousProducts) =>
-            previousProducts.filter(
-                (product) => product.id !== productId
-            )
+        const confirmed = window.confirm(
+            '¿Estás seguro de que deseas eliminar este producto?'
         )
 
-    } catch (error) {
-        console.error(error)
+        if (!confirmed) {
+            return
+        }
 
-        window.alert(error.message)
+        try {
+            await api.delete(`/products/${productId}`)
+
+            setProducts((previousProducts) =>
+                previousProducts.filter(
+                    (product) => product.id !== productId
+                )
+            )
+        } catch (error) {
+            console.error(error)
+
+            if (error.status === 401) {
+                window.alert(
+                    'Tu sesión ha expirado. Inicia sesión nuevamente.'
+                )
+                return
+            }
+
+            if (error.status === 403) {
+                window.alert(
+                    'No tienes permiso para eliminar productos.'
+                )
+                return
+            }
+
+            if (error.status === 404) {
+                window.alert(
+                    'El producto ya no existe o no fue encontrado.'
+                )
+                return
+            }
+
+            if (error.status === 422) {
+                const validationMessage = error.errors
+                    ? Object.values(error.errors)
+                          .flat()
+                          .join(' ')
+                    : 'Los datos enviados no son válidos.'
+
+                window.alert(validationMessage)
+                return
+            }
+
+            window.alert(
+                'No se pudo eliminar el producto. Inténtalo nuevamente.'
+            )
+        }
     }
-}
 
     return (
         <div className="min-h-screen bg-gray-100">
@@ -80,8 +122,7 @@ import { api } from '../services/api'
                 <header className="bg-blue-600 px-5 py-5 text-white">
 
                     <button
-                      onClick={() => navigate('/inventory')}
-
+                        onClick={() => navigate('/inventory')}
                         className="text-sm opacity-80"
                     >
                         ← Volver
@@ -96,15 +137,17 @@ import { api } from '../services/api'
                 {/* Contenido */}
                 <main className="p-5">
 
-                <div className="mb-5">
-    <input
-        type="text"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="Buscar por nombre o código..."
-        className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-500"
-    />
-</div>
+                    <div className="mb-5">
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(event) =>
+                                setSearch(event.target.value)
+                            }
+                            placeholder="Buscar por nombre o código..."
+                            className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                        />
+                    </div>
 
                     <div className="mb-5 flex items-center justify-between">
 
@@ -112,16 +155,16 @@ import { api } from '../services/api'
                             Inventario
                         </h2>
 
-                       {can('productos.crear') && (
-    
-
-        <button
-         onClick={() => navigate('/products/create')}
-        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-    >
-        + Nuevo
-    </button>
-)}
+                        {can('productos.crear') && (
+                            <button
+                                onClick={() =>
+                                    navigate('/products/create')
+                                }
+                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                            >
+                                + Nuevo
+                            </button>
+                        )}
 
                     </div>
 
@@ -137,7 +180,13 @@ import { api } from '../services/api'
                         </p>
                     )}
 
-                    {!loading && !error && (
+                    {!loading && !error && products.length === 0 && (
+                        <p className="rounded-lg bg-gray-50 p-4 text-center text-gray-500">
+                            No se encontraron productos.
+                        </p>
+                    )}
+
+                    {!loading && !error && products.length > 0 && (
                         <div className="space-y-4">
 
                             {products.map((product) => (
@@ -168,44 +217,52 @@ import { api } from '../services/api'
                                         {product.description}
                                     </p>
 
-                                   <div className="mt-3 flex justify-between text-sm">
+                                    <div className="mt-3 flex justify-between text-sm">
 
-    <span>
-        Categoría:{' '}
-        <strong>
-            {product.category?.name ?? 'Sin categoría'}
-        </strong>
-    </span>
+                                        <span>
+                                            Categoría:{' '}
+                                            <strong>
+                                                {product.category?.name ??
+                                                    'Sin categoría'}
+                                            </strong>
+                                        </span>
 
-    <span>
-        Stock:{' '}
-        <strong>
-            {product.stock}
-        </strong>
-    </span>
+                                        <span>
+                                            Stock:{' '}
+                                            <strong>
+                                                {product.stock}
+                                            </strong>
+                                        </span>
 
-</div>
+                                    </div>
 
-<div className="mt-4 flex gap-2">
+                                    <div className="mt-4 flex gap-2">
 
-    {can('productos.editar') && (
-    <button
-    onClick={() => navigate(`/products/${product.id}/edit`)}
-        className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
-    >
-        ✏️ Editar
-    </button>
-)}
+                                        {can('productos.editar') && (
+                                            <button
+                                                onClick={() =>
+                                                    navigate(
+                                                        `/products/${product.id}/edit`
+                                                    )
+                                                }
+                                                className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
+                                            >
+                                                ✏️ Editar
+                                            </button>
+                                        )}
 
-{can('productos.eliminar') && (
-    <button
-        onClick={() => handleDelete(product.id)}
-        className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white"
-    >
-        🗑️ Eliminar
-    </button>
-)}
-</div>
+                                        {can('productos.eliminar') && (
+                                            <button
+                                                onClick={() =>
+                                                    handleDelete(product.id)
+                                                }
+                                                className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white"
+                                            >
+                                                🗑️ Eliminar
+                                            </button>
+                                        )}
+
+                                    </div>
 
                                 </div>
                             ))}

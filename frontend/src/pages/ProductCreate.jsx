@@ -10,6 +10,7 @@ function ProductCreate() {
     const [saving, setSaving] = useState(false)
     const [message, setMessage] = useState('')
     const [error, setError] = useState('')
+    const [validationErrors, setValidationErrors] = useState({})
 
     const [form, setForm] = useState({
         name: '',
@@ -21,24 +22,24 @@ function ProductCreate() {
         minimum_stock: '0',
     })
 
-   useEffect(() => {
-    api.get('/categories')
-        .then(({ response, data }) => {
-            if (!response.ok) {
-                throw new Error(
-                    'No se pudieron cargar las categorías'
+    useEffect(() => {
+        api.get('/categories')
+            .then(({ data }) => {
+                setCategories(data)
+                setLoadingCategories(false)
+            })
+            .catch((error) => {
+                console.error(error)
+                setError(
+                    error.status === 401
+                        ? 'Tu sesión ha expirado. Inicia sesión nuevamente.'
+                        : error.status === 403
+                        ? 'No tienes permiso para consultar las categorías.'
+                        : 'No se pudieron cargar las categorías.'
                 )
-            }
-
-            setCategories(data)
-            setLoadingCategories(false)
-        })
-        .catch((error) => {
-            console.error(error)
-            setError(error.message)
-            setLoadingCategories(false)
-        })
-}, [])
+                setLoadingCategories(false)
+            })
+    }, [])
 
     function handleChange(event) {
         const { name, value } = event.target
@@ -46,6 +47,11 @@ function ProductCreate() {
         setForm((previous) => ({
             ...previous,
             [name]: value,
+        }))
+
+        setValidationErrors((previous) => ({
+            ...previous,
+            [name]: undefined,
         }))
     }
 
@@ -55,38 +61,18 @@ function ProductCreate() {
         setSaving(true)
         setError('')
         setMessage('')
+        setValidationErrors({})
 
         try {
-            // Obtener la cookie CSRF de Laravel
-            const { response, data } = await api.post(
-    '/products',
-    {
-        name: form.name,
-        code: form.code,
-        category_id: Number(form.category_id),
-        description: form.description,
-        price: Number(form.price),
-        stock: Number(form.stock),
-        minimum_stock: Number(form.minimum_stock),
-    }
-)
-
-            if (!response.ok) {
-                if (data.errors) {
-                    const validationErrors = Object.values(
-                        data.errors
-                    )
-                        .flat()
-                        .join(' ')
-
-                    throw new Error(validationErrors)
-                }
-
-                throw new Error(
-                    data.message ||
-                        'No se pudo crear el producto'
-                )
-            }
+            await api.post('/products', {
+                name: form.name,
+                code: form.code,
+                category_id: Number(form.category_id),
+                description: form.description,
+                price: Number(form.price),
+                stock: Number(form.stock),
+                minimum_stock: Number(form.minimum_stock),
+            })
 
             setMessage('Producto creado correctamente.')
 
@@ -105,7 +91,36 @@ function ProductCreate() {
             }, 800)
         } catch (error) {
             console.error(error)
-            setError(error.message)
+
+            if (error.status === 422) {
+                setValidationErrors(error.errors || {})
+                return
+            }
+
+            if (error.status === 401) {
+                setError(
+                    'Tu sesión ha expirado. Inicia sesión nuevamente.'
+                )
+                return
+            }
+
+            if (error.status === 403) {
+                setError(
+                    'No tienes permiso para crear productos.'
+                )
+                return
+            }
+
+            if (error.status === 404) {
+                setError(
+                    'El recurso solicitado no fue encontrado.'
+                )
+                return
+            }
+
+            setError(
+                'No se pudo crear el producto. Inténtalo nuevamente.'
+            )
         } finally {
             setSaving(false)
         }
@@ -152,6 +167,12 @@ function ProductCreate() {
                                 placeholder="Ej. Laptop HP"
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.name && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.name[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -168,6 +189,12 @@ function ProductCreate() {
                                 placeholder="Ej. LAP-002"
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.code && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.code[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -198,6 +225,12 @@ function ProductCreate() {
                                     </option>
                                 ))}
                             </select>
+
+                            {validationErrors.category_id && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.category_id[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -213,6 +246,12 @@ function ProductCreate() {
                                 placeholder="Descripción del producto"
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.description && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.description[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -231,6 +270,12 @@ function ProductCreate() {
                                 placeholder="0.00"
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.price && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.price[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -247,6 +292,12 @@ function ProductCreate() {
                                 required
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.stock && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.stock[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -263,6 +314,12 @@ function ProductCreate() {
                                 required
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500"
                             />
+
+                            {validationErrors.minimum_stock && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.minimum_stock[0]}
+                                </p>
+                            )}
                         </div>
 
                         {error && (

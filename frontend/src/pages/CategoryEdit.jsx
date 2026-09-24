@@ -1,10 +1,8 @@
-
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../services/api'
-     
 
-   function CategoryEdit() {
+function CategoryEdit() {
     const navigate = useNavigate()
     const { id: categoryId } = useParams()
 
@@ -12,6 +10,7 @@ import { api } from '../services/api'
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
     const [message, setMessage] = useState('')
+    const [validationErrors, setValidationErrors] = useState({})
 
     const [form, setForm] = useState({
         name: '',
@@ -19,33 +18,53 @@ import { api } from '../services/api'
     })
 
     useEffect(() => {
+        let cancelled = false
+
         async function loadCategory() {
             try {
-               const { response, data } = await api.get(
-    `/categories/${categoryId}`
-)
+                const { data } = await api.get(
+                    `/categories/${categoryId}`
+                )
 
-if (!response.ok) {
-    throw new Error('No se pudo cargar la categoría')
-}
-
-const category = data
-
-                setForm({
-                    name: category.name ?? '',
-                    description: category.description ?? '',
-                })
-
-                setLoading(false)
-
+                if (!cancelled) {
+                    setForm({
+                        name: data.name ?? '',
+                        description: data.description ?? '',
+                    })
+                }
             } catch (error) {
                 console.error(error)
-                setError(error.message)
-                setLoading(false)
+
+                if (!cancelled) {
+                    if (error.status === 401) {
+                        setError(
+                            'Tu sesión ha expirado. Inicia sesión nuevamente.'
+                        )
+                    } else if (error.status === 403) {
+                        setError(
+                            'No tienes permisos para consultar esta categoría.'
+                        )
+                    } else if (error.status === 404) {
+                        setError('La categoría no existe.')
+                    } else {
+                        setError(
+                            error.message ||
+                                'No se pudo cargar la categoría.'
+                        )
+                    }
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false)
+                }
             }
         }
 
         loadCategory()
+
+        return () => {
+            cancelled = true
+        }
     }, [categoryId])
 
     function handleChange(event) {
@@ -55,52 +74,57 @@ const category = data
             ...previous,
             [name]: value,
         }))
+
+        setValidationErrors((previous) => ({
+            ...previous,
+            [name]: undefined,
+        }))
     }
 
     async function handleSubmit(event) {
-    event.preventDefault()
+        event.preventDefault()
 
-    setSaving(true)
-    setError('')
-    setMessage('')
+        setSaving(true)
+        setError('')
+        setMessage('')
+        setValidationErrors({})
 
-    try {
-        // Obtener la cookie CSRF de Laravel
-        const { response, data } = await api.put(
-    `/categories/${categoryId}`,
-    {
-        name: form.name,
-        description: form.description,
-    }
-)
+        try {
+            await api.put(`/categories/${categoryId}`, {
+                name: form.name,
+                description: form.description,
+            })
 
-        if (!response.ok) {
-            if (data.errors) {
-                const validationErrors = Object.values(data.errors)
-                    .flat()
-                    .join(' ')
+            setMessage('Categoría actualizada correctamente.')
 
-                throw new Error(validationErrors)
+            setTimeout(() => {
+                navigate('/categories')
+            }, 800)
+        } catch (error) {
+            console.error(error)
+
+            if (error.status === 422) {
+                setValidationErrors(error.errors || {})
+            } else if (error.status === 401) {
+                setError(
+                    'Tu sesión ha expirado. Inicia sesión nuevamente.'
+                )
+            } else if (error.status === 403) {
+                setError(
+                    'No tienes permisos para actualizar esta categoría.'
+                )
+            } else if (error.status === 404) {
+                setError('La categoría que intentas actualizar no existe.')
+            } else {
+                setError(
+                    error.message ||
+                        'Ocurrió un error inesperado al actualizar la categoría.'
+                )
             }
-
-            throw new Error(
-                data.message || 'No se pudo actualizar la categoría'
-            )
+        } finally {
+            setSaving(false)
         }
-
-        setMessage('Categoría actualizada correctamente.')
-
-        setTimeout(() => {
-    navigate('/categories')
-}, 800)
-
-    } catch (error) {
-        console.error(error)
-        setError(error.message)
-    } finally {
-        setSaving(false)
     }
-}
 
     if (loading) {
         return (
@@ -117,28 +141,24 @@ const category = data
     return (
         <div className="min-h-screen bg-gray-100">
             <div className="mx-auto min-h-screen max-w-md bg-white shadow">
-
                 <header className="bg-green-600 px-5 py-5 text-white">
-               <button
-                  onClick={() => navigate('/categories')}
-                  className="text-sm opacity-80"
->
+                    <button
+                        onClick={() => navigate('/categories')}
+                        className="text-sm opacity-80"
+                    >
                         ← Volver a categorías
                     </button>
 
                     <h1 className="mt-2 text-2xl font-bold">
                         Editar categoría
                     </h1>
-
                 </header>
 
                 <main className="p-5">
-
                     <form
                         onSubmit={handleSubmit}
                         className="space-y-4"
                     >
-
                         <div>
                             <label className="mb-1 block text-sm font-semibold text-gray-700">
                                 Nombre
@@ -152,6 +172,12 @@ const category = data
                                 required
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-green-500"
                             />
+
+                            {validationErrors.name && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.name[0]}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -166,6 +192,12 @@ const category = data
                                 rows="4"
                                 className="w-full rounded-lg border px-4 py-3 outline-none focus:border-green-500"
                             />
+
+                            {validationErrors.description && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {validationErrors.description[0]}
+                                </p>
+                            )}
                         </div>
 
                         {error && (
@@ -189,9 +221,7 @@ const category = data
                                 ? 'Guardando...'
                                 : 'Actualizar categoría'}
                         </button>
-
                     </form>
-
                 </main>
             </div>
         </div>

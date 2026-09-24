@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AuthContext } from './AuthContext.js'
+import { api } from '../services/api'
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null)
@@ -10,18 +11,7 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         async function loadUser() {
             try {
-                const response = await fetch('/api/user', {
-                    credentials: 'include',
-                })
-
-                if (!response.ok) {
-                    setUser(null)
-                    setMode(null)
-                    setPermissions([])
-                    return
-                }
-
-                const data = await response.json()
+                const { data } = await api.get('/user')
 
                 setUser(data)
                 setMode(data.mode ?? data.role)

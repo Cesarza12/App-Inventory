@@ -35,6 +35,17 @@ async function request(endpoint, options = {}) {
 
     const data = await response.json().catch(() => null)
 
+    if (!response.ok) {
+        const error = new Error(
+            data?.message || 'Ocurrió un error en la solicitud'
+        )
+
+        error.status = response.status
+        error.errors = data?.errors || null
+
+        throw error
+    }
+
     return {
         response,
         data,

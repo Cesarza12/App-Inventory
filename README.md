@@ -8,6 +8,12 @@ La aplicación permite gestionar información de productos y categorías mediant
 
 Laravel se encarga de la autenticación, autorización, lógica del backend, acceso a la base de datos y API REST. React proporciona la interfaz de gestión del inventario y el consumo de los servicios de la API.
 
+## Descripción del problema
+
+El proyecto surge como una propuesta para gestionar de manera organizada la información relacionada con productos y categorías dentro de un sistema de inventario.
+
+La aplicación permite centralizar estas operaciones mediante una interfaz web, incorporando autenticación, permisos, validaciones, relaciones entre entidades y operaciones CRUD.
+
 ## Tecnologías utilizadas
 
 ### Backend
@@ -72,17 +78,25 @@ El proyecto utiliza una arquitectura híbrida:
 
 ```text
 app-movil/
+
 ├── app/
 │   ├── Http/
 │   ├── Models/
 │   └── ...
+
 ├── database/
 │   ├── migrations/
 │   └── seeders/
+
 ├── resources/
 │   ├── css/
 │   └── views/
+
 ├── routes/
+
+├── documentacion/
+│   └── Informe-final-app-inlges-español.pdf
+
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
@@ -92,6 +106,7 @@ app-movil/
 │   │   └── services/
 │   ├── package.json
 │   └── vite.config.js
+
 ├── .env.example
 └── README.md
 ```
@@ -112,6 +127,7 @@ Para ejecutar el proyecto se requiere tener instalado:
 
 ```bash
 git clone https://github.com/Cesarza12/App-Inventory.git
+
 cd App-Inventory
 ```
 
@@ -174,6 +190,7 @@ Entrar a la carpeta `frontend`:
 
 ```bash
 cd frontend
+
 npm install
 ```
 
@@ -209,6 +226,7 @@ php artisan serve
 
 ```bash
 cd frontend
+
 npm run dev
 ```
 
@@ -220,6 +238,7 @@ Para generar la versión de producción del frontend:
 
 ```bash
 cd frontend
+
 npm run build
 ```
 
@@ -254,6 +273,17 @@ La autorización de las operaciones de la API se realiza mediante **Gates y perm
 
 React utiliza el estado de autenticación y los permisos para controlar la interfaz, mientras que Laravel mantiene la autorización en el backend.
 
+## Usuarios de prueba
+
+El sistema contempla diferentes roles de usuario, entre ellos:
+
+* **Administrador:** dispone de los permisos correspondientes a las operaciones administrativas del sistema.
+* **Trabajador:** dispone de los permisos asignados al rol `worker`.
+
+Para realizar pruebas locales, los usuarios pueden ser creados o configurados mediante los mecanismos de autenticación y seeders disponibles en el proyecto.
+
+Por seguridad, las contraseñas no se almacenan en este README ni en el repositorio.
+
 ## Seguridad y variables de entorno
 
 Las credenciales y variables sensibles del entorno se almacenan en `.env`.
@@ -274,13 +304,26 @@ Fue necesario ajustar la configuración del entorno local para permitir el funci
 
 Esta incidencia correspondió al entorno de desarrollo utilizado durante la configuración inicial y no forma parte de los requisitos normales de instalación del proyecto.
 
+## Documentación del proyecto
+
+El informe final del proyecto se encuentra disponible tanto en la carpeta `documentacion/` del repositorio como mediante el siguiente enlace:
+
+**Informe final del proyecto:**
+[Ver Informe Final — App Inventory](https://drive.google.com/file/d/1NdY2mwAkEwIufOaT5ebR9iKH1KlEj94f/view?usp=sharing)
+
+Archivo incluido en el repositorio:
+
+```text
+documentacion/Informe-final-app-inlges-español.pdf
+```
+
 ## Repositorio
 
 El código fuente del proyecto se encuentra disponible en GitHub:
 
 https://github.com/Cesarza12/App-Inventory
 
-## Autor
+## Integrante
 
 **Julio Cesar Zapata Aguilar**
 
